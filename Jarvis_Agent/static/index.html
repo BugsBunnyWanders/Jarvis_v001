@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jarvis Client</title>
+  <style>
+    *{box-sizing:border-box;font-family:system-ui,sans-serif}
+    body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#101010;color:#eee}
+    #chat-container{width:95%;max-width:600px;height:90vh;display:flex;flex-direction:column;border-radius:1rem;overflow:hidden;background:#181818;box-shadow:0 0 25px #0006}
+    #messages{flex:1;padding:1rem;overflow-y:auto}
+    #messages div{margin:.5rem 0;padding:.75rem 1rem;border-radius:1rem;line-height:1.4}
+    .user{background:#2563eb;align-self:flex-end}
+    .jarvis{background:#374151;align-self:flex-start}
+    #controls{display:flex;padding:.75rem;gap:.5rem;background:#111}
+    #controls input{flex:1;padding:.5rem .75rem;border:none;border-radius:.5rem;outline:none;background:#222;color:#eee}
+    #controls button{border:none;cursor:pointer;border-radius:.5rem;padding:.5rem .75rem;background:#2563eb;color:#fff;font-size:1rem;display:flex;align-items:center;justify-content:center}
+    #controls button:disabled{background:#555;cursor:not-allowed}
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="messages"></div>
+    <div id="controls">
+      <button id="mic-btn" title="Toggle voice input">🎙️</button>
+      <input id="text-input" placeholder="Type a message & hit Enter" autocomplete="off" />
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+
+<script>
+/* ---------------- CONFIG ----------------*/
+const API_CHAT = "https://1528-2405-201-a016-a83c-643c-443f-6b98-894.ngrok-free.app/chat";  // update if ngrok URL changes
+const API_TTS  = "https://1528-2405-201-a016-a83c-643c-443f-6b98-894.ngrok-free.app/tts";   // remote TTS fallback
+/* -------------- DOM HELPERS -------------*/
+function appendMessage(cls, text){
+  const msg=document.createElement("div");
+  msg.className=cls;
+  msg.textContent=text;
+  document.getElementById("messages").appendChild(msg);
+  msg.scrollIntoView({behavior:"smooth"});
+}
+/* -------------- SPEECH (OUT) -------------*/
+function localSpeak(text){
+  const synth=window.speechSynthesis;
+  const makeUtter=()=>{
+    const u=new SpeechSynthesisUtterance(text);
+    // pick a nicer voice if available
+    const voices=synth.getVoices();
+    if(!voices.length){             // no voices → bail out
+        throw new Error('No voices installed');
+    }
+    const preferred=voices.find(v=>/Google/i.test(v.name)&&/^en/i.test(v.lang))
+                    || voices.find(v=>/Microsoft/i.test(v.name)&&/^en/i.test(v.lang))
+                    || voices[0];
+    if(preferred) u.voice=preferred;
+    return u;
+  };
+  if(voicesLoaded){ synth.speak(makeUtter()); }
+  else{
+    synth.addEventListener('voiceschanged',()=>{
+      voicesLoaded=true;
+      synth.speak(makeUtter());
+    },{once:true});
+  }
+}
+async function remoteSpeak(text){
+  try{
+    const r=await fetch(API_TTS,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(!r.ok) throw new Error(await r.text());
+    const buf=await r.arrayBuffer();
+    const url=URL.createObjectURL(new Blob([buf],{type:'audio/mpeg'}));
+    new Audio(url).play();
+  }catch(e){ console.error(e); }
+}
+function speak(text){
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(!isMobile && 'speechSynthesis' in window){
+    try{ localSpeak(text); return; }catch(e){}
+  }
+  remoteSpeak(text);
+}
+let voicesLoaded=false;
+/* ------------- SPEECH (IN) --------------*/
+let recognition, listening=false;
+const micBtn=document.getElementById('mic-btn');
+if('SpeechRecognition' in window || 'webkitSpeechRecognition' in window){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SpeechRecognition();
+  recognition.lang='en-US';
+  recognition.interimResults=false;
+  recognition.onresult=e=>{ send(e.results[0][0].transcript); };
+  recognition.onend=()=>{ listening=false; micBtn.textContent='🎙️'; };
+  micBtn.addEventListener('click',()=>{
+    if(listening){ recognition.stop(); }
+    else { recognition.start(); listening=true; micBtn.textContent='⏹️'; }
+  });
+}else{ micBtn.disabled=true; micBtn.title='Voice input not supported in this browser'; }
+/* -------------- CHAT --------------------*/
+async function send(text){
+  appendMessage('user',text);
+  document.getElementById('text-input').value='';
+  try{
+    const res=await fetch(API_CHAT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data=await res.json();
+    appendMessage('jarvis',data.reply);
+    speak(data.reply);
+  }catch(err){ appendMessage('jarvis',`Error: ${err.message}`); }
+}
+/* ---------- UI WIRING -------------------*/
+const input=document.getElementById('text-input');
+document.getElementById('send-btn').addEventListener('click',()=>{ const t=input.value.trim(); if(t) send(t); });
+input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const t=input.value.trim(); if(t) send(t); }});
+</script>
+</body>
+</html>

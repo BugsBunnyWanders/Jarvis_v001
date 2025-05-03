@@ -1,0 +1,37 @@
+{
+    "timestamp": 1746255554.1573634,
+    "devices": [
+        {
+            "id": "d7b096d501f14803e9k9xf",
+            "ip": "192.168.29.238",
+            "uuid": "59feb93f20ecdf59",
+            "active": 2,
+            "encrypt": true,
+            "productKey": "key8u54q9dtru5jw",
+            "token": true,
+            "wf_cfg": true,
+            "clientLink": 3,
+            "name": "Wipro RGBCW 9W Bulb",
+            "key": ".U=`B3gl$Em6^A9=",
+            "mac": "fc:3c:d7:3e:9c:6e",
+            "ability": 0,
+            "dev_type": "default",
+            "err": "",
+            "type": "default",
+            "dps": {
+                "dps": {
+                    "20": true,
+                    "21": "white",
+                    "22": 1000,
+                    "23": 1000,
+                    "24": "000003e803e8",
+                    "25": "000e0d0000000000000000c80000",
+                    "26": 0,
+                    "34": true
+                }
+            },
+            "origin": "broadcast",
+            "ver": "3.5"
+        }
+    ]
+}
